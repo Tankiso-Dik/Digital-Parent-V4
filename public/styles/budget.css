@@ -29,6 +29,13 @@
   overflow: auto;
 }
 
+.budget-page--split-active #budget-prev,
+.budget-page--split-active #budget-next,
+.budget-page--loans-active #budget-prev,
+.budget-page--loans-active #budget-next {
+  display: none;
+}
+
 @media (min-width: 1024px) {
   .budget-page { height: 100dvh; }
 }

@@ -15,6 +15,7 @@ let state = {
   groups: [],
   members: [],
   groupMembers: [],
+  memberCandidates: [],
   activeGroupId: null,
   expenses: [],
   balances: { balances: [], simplified_debts: [] },
@@ -137,6 +138,16 @@ async function loadGroupData() {
   state.balances = balances.data || { balances: [], simplified_debts: [] };
   state.activity = activity.data || [];
   state.groupMembers = groupMembers.data || [];
+}
+
+async function loadMemberCandidates() {
+  if (isSplitGuest() || !state.activeGroupId) {
+    state.memberCandidates = [];
+    return [];
+  }
+  const res = await api.get(`/split-expenses/groups/${state.activeGroupId}/member-candidates`);
+  state.memberCandidates = res.data || [];
+  return state.memberCandidates;
 }
 
 function bindShell() {
@@ -275,6 +286,8 @@ function renderMain() {
   main.querySelector('#split-archive-group')?.addEventListener('click', () => archiveGroup(group.id));
   main.querySelector('#split-delete-group')?.addEventListener('click', () => deleteGroup(group.id));
   main.querySelector('#split-settle')?.addEventListener('click', () => openSettlementModal());
+  const settleButton = main.querySelector('#split-settle');
+  if (settleButton) settleButton.disabled = state.expenses.length === 0;
   main.querySelector('#split-invite')?.addEventListener('click', () => openMemberModal());
   stagger(main.querySelectorAll('.split-expense, .split-debt, .split-activity-item'));
 }
@@ -364,6 +377,16 @@ function memberOptions(selectedId = '', source = state.groupMembers.length ? sta
   }).join('');
 }
 
+function memberCandidateOptions(candidates = []) {
+  return candidates
+    .filter((candidate) => !candidate.in_group)
+    .map((candidate) => {
+      const value = candidate.source === 'contact' ? `contact:${candidate.contact_id}` : `user:${candidate.user_id}`;
+      const suffix = candidate.source === 'contact' ? ` · ${t('nav.contacts')}` : '';
+      return `<option value="${esc(value)}">${esc(candidate.display_name)}${suffix}</option>`;
+    }).join('');
+}
+
 function groupMemberCheckboxes() {
   const members = state.groupMembers.length ? state.groupMembers : state.members;
   return members.map((member) => {
@@ -427,6 +450,20 @@ function validateSplitForm(panel) {
   return valid;
 }
 
+function formatDateWhileTyping(value) {
+  const placeholder = dateInputPlaceholder();
+  const separator = placeholder.includes('/') ? '/' : placeholder.includes('.') ? '.' : '-';
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+  if (placeholder.startsWith('YYYY')) {
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 4)}${separator}${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}${separator}${digits.slice(4, 6)}${separator}${digits.slice(6)}`;
+  }
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}${separator}${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}${separator}${digits.slice(2, 4)}${separator}${digits.slice(4)}`;
+}
+
 function collectSplitPayload(form) {
   const method = form.querySelector('[name="split_method"]')?.value || 'equal';
   const participants = [...form.querySelectorAll('input[name="participants"]:checked')].map((input) => Number(input.value));
@@ -440,9 +477,53 @@ function collectSplitPayload(form) {
   return { participants, splits };
 }
 
-function openGroupModal(group = null) {
+function renderGroupMemberEditor(candidates = []) {
+  if (!candidates.length) return '';
+  return `
+    <fieldset class="split-participants">
+      <legend>${t('splitExpenses.members')}</legend>
+      ${candidates.map((candidate) => {
+        const key = candidate.source === 'contact' ? `contact:${candidate.contact_id}` : `user:${candidate.user_id}`;
+        const locked = candidate.group_role === 'owner';
+        const badge = candidate.source === 'contact' ? ` · ${t('nav.contacts')}` : '';
+        return `
+          <label class="split-check">
+            <input type="checkbox" name="group_members" value="${esc(key)}" ${candidate.in_group ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+            <span>${esc(candidate.display_name)}${badge}${candidate.group_role === 'guest' ? ` · ${t('splitExpenses.roleGuest')}` : ''}</span>
+          </label>
+        `;
+      }).join('')}
+    </fieldset>
+  `;
+}
+
+async function syncEditedGroupMembers(group, form) {
+  if (!group) return;
+  const selected = new Set([...form.querySelectorAll('input[name="group_members"]:checked')].map((input) => input.value));
+  const candidates = state.memberCandidates || [];
+  const currentUserIds = new Set(state.groupMembers.map((member) => Number(member.user_id)));
+  for (const candidate of candidates) {
+    if (candidate.source === 'user') {
+      const userId = Number(candidate.user_id);
+      const selectedKey = `user:${userId}`;
+      if (selected.has(selectedKey) && !currentUserIds.has(userId)) {
+        await api.post(`/split-expenses/groups/${group.id}/members`, { user_id: userId, role: 'guest' });
+      } else if (!selected.has(selectedKey) && currentUserIds.has(userId) && candidate.group_role !== 'owner') {
+        await api.delete(`/split-expenses/groups/${group.id}/members/${userId}`);
+      }
+    } else if (candidate.source === 'contact') {
+      const selectedKey = `contact:${candidate.contact_id}`;
+      if (selected.has(selectedKey)) {
+        await api.post(`/split-expenses/groups/${group.id}/members`, { contact_id: candidate.contact_id, role: 'guest' });
+      }
+    }
+  }
+}
+
+async function openGroupModal(group = null) {
   const currency = state.meta?.default_currency || 'EUR';
   const isEdit = Boolean(group);
+  const candidates = isEdit ? await loadMemberCandidates() : [];
   openSharedModal({
     title: isEdit ? t('splitExpenses.editGroup') : t('splitExpenses.addGroup'),
     content: `
@@ -451,6 +532,7 @@ function openGroupModal(group = null) {
         <label>${t('splitExpenses.description')}<textarea class="input" name="description" rows="3" maxlength="5000">${esc(group?.description || '')}</textarea></label>
         <label>${t('splitExpenses.type')}<select class="input" name="type">${state.meta.group_types.map((type) => `<option value="${type}" ${type === group?.type ? 'selected' : ''}>${t(`splitExpenses.groupType.${type}`)}</option>`).join('')}</select></label>
         <label>${t('splitExpenses.currency')}<select class="input" name="default_currency">${state.meta.currencies.map((c) => `<option value="${c}" ${c === (group?.default_currency || currency) ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        ${isEdit ? renderGroupMemberEditor(candidates) : ''}
         <div class="modal-actions">
           <button class="btn btn--secondary" type="button" id="split-cancel-group">${t('common.cancel')}</button>
           <button class="btn btn--primary" type="submit" id="split-save-group">${t('common.save')}</button>
@@ -465,6 +547,7 @@ function openGroupModal(group = null) {
         const data = Object.fromEntries(new FormData(form));
         if (isEdit) await api.patch(`/split-expenses/groups/${group.id}`, data);
         else await api.post('/split-expenses/groups', data);
+        if (isEdit) await syncEditedGroupMembers(group, form);
         closeModal({ force: true });
         await loadGroups();
         await loadGroupData();
@@ -572,12 +655,13 @@ function openSettlementModal() {
   });
 }
 
-function openMemberModal() {
+async function openMemberModal() {
+  const candidates = await loadMemberCandidates();
   openSharedModal({
     title: t('splitExpenses.addMember'),
     content: `
       <form id="split-member-form" class="split-form">
-        <label>${t('splitExpenses.member')}<select class="input" name="user_id">${memberOptions('', state.members)}</select></label>
+        <label>${t('splitExpenses.member')}<select class="input" name="member_ref">${memberCandidateOptions(candidates)}</select></label>
         <label>${t('splitExpenses.role')}<select class="input" name="role"><option value="guest">${t('splitExpenses.roleGuest')}</option><option value="admin">${t('splitExpenses.roleAdmin')}</option></select></label>
         <div class="modal-actions">
           <button class="btn btn--secondary" type="button" id="split-new-guest">${t('splitExpenses.createGuest')}</button>
@@ -592,6 +676,10 @@ function openMemberModal() {
       panel.querySelector('#split-member-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(panel.querySelector('#split-member-form')));
+        const [source, id] = String(data.member_ref || '').split(':');
+        delete data.member_ref;
+        if (source === 'contact') data.contact_id = Number(id);
+        else data.user_id = Number(id);
         await api.post(`/split-expenses/groups/${state.activeGroupId}/members`, data);
         closeModal({ force: true });
         await loadGroups();
@@ -624,6 +712,10 @@ function openGuestModal() {
     `,
     onSave(panel) {
       panel.querySelector('#split-cancel-guest')?.addEventListener('click', () => closeModal());
+      const birthDateInput = panel.querySelector('[name="birth_date"]');
+      birthDateInput?.addEventListener('input', () => {
+        birthDateInput.value = formatDateWhileTyping(birthDateInput.value);
+      });
       panel.querySelector('#split-guest-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const form = panel.querySelector('#split-guest-form');

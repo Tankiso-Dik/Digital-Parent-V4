@@ -5,6 +5,7 @@
 
 import express from 'express';
 import bcrypt from 'bcrypt';
+import crypto from 'node:crypto';
 import * as db from '../db.js';
 import { createLogger } from '../logger.js';
 import { collectErrors, date as validateDate, id as validateId, str, MAX_TEXT, MAX_TITLE } from '../middleware/validate.js';
@@ -114,6 +115,29 @@ function uniqueUsername(base) {
     i += 1;
   }
   return username;
+}
+
+function userFromContact(database, contactId, actorId) {
+  const contact = database.prepare('SELECT * FROM contacts WHERE id = ?').get(contactId);
+  if (!contact) throw new Error('Contact not found.');
+  if (contact.family_user_id) return contact.family_user_id;
+  const username = uniqueUsername(contact.name);
+  const passwordHash = bcrypt.hashSync(crypto.randomBytes(24).toString('base64url'), 12);
+  const created = database.prepare(`
+    INSERT INTO users (username, display_name, password_hash, avatar_color, role, family_role)
+    VALUES (?, ?, ?, '#2563EB', 'member', 'other')
+  `).run(username, contact.name, passwordHash);
+  database.prepare('UPDATE contacts SET family_user_id = ? WHERE id = ?').run(created.lastInsertRowid, contact.id);
+  if (contact.birthday) {
+    syncGuestArtifacts(database, created.lastInsertRowid, {
+      displayName: contact.name,
+      phone: contact.phone,
+      email: contact.email,
+      birthDate: contact.birthday,
+      actorUserId: actorId,
+    });
+  }
+  return created.lastInsertRowid;
 }
 
 function syncGuestArtifacts(database, userId, { displayName, phone, email, birthDate, actorUserId }) {
@@ -256,7 +280,7 @@ router.get('/dashboard', (req, res) => {
       GROUP BY l.currency, l.user_id
     `).all({ uid });
     const mine = balances.filter((row) => row.user_id === uid);
-    const totalOwed = mine.filter((row) => row.net_minor > 0).map(normalizeLedgerRow);
+    const totalOwed = mine.filter((row) => row.net_minor > 0).map((row) => normalizeLedgerRow({ ...row, amount_minor: row.net_minor }));
     const totalOwing = mine.filter((row) => row.net_minor < 0).map((row) => normalizeLedgerRow({ ...row, amount_minor: -row.net_minor }));
     const groupWhere = isSplitGuest(req)
       ? "visible.user_id = @userId AND g.status = 'active' AND g.id = @restrictedGroupId"
@@ -400,25 +424,82 @@ router.get('/groups/:id/members', (req, res) => {
   }
 });
 
+router.get('/groups/:id/member-candidates', (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    if (!requireGroupAccess(groupId, req)) return res.status(404).json({ error: 'Group not found.', code: 404 });
+    if (isSplitGuest(req)) return res.status(403).json({ error: 'Not authorized.', code: 403 });
+    const people = db.get().prepare(`
+      SELECT 'user' AS source, u.id AS user_id, NULL AS contact_id, u.display_name, u.username,
+             u.avatar_color, u.family_role, c.phone, c.email, b.birth_date,
+             CASE WHEN gm.user_id IS NULL THEN 0 ELSE 1 END AS in_group,
+             gm.role AS group_role
+      FROM users u
+      LEFT JOIN contacts c ON c.family_user_id = u.id
+      LEFT JOIN birthdays b ON b.family_user_id = u.id
+      LEFT JOIN expense_group_members gm ON gm.group_id = ? AND gm.user_id = u.id
+      WHERE NOT EXISTS (SELECT 1 FROM housekeeping_workers hw WHERE hw.user_id = u.id)
+      ORDER BY u.display_name COLLATE NOCASE ASC
+    `).all(groupId);
+    const contacts = db.get().prepare(`
+      SELECT 'contact' AS source, NULL AS user_id, c.id AS contact_id, c.name AS display_name,
+             NULL AS username, '#2563EB' AS avatar_color, 'other' AS family_role,
+             c.phone, c.email, c.birthday AS birth_date, 0 AS in_group, NULL AS group_role
+      FROM contacts c
+      WHERE c.family_user_id IS NULL
+      ORDER BY c.name COLLATE NOCASE ASC
+    `).all();
+    res.json({ data: [...people, ...contacts] });
+  } catch (err) {
+    log.error('GET /groups/:id/member-candidates error:', err);
+    res.status(500).json({ error: 'Internal server error.', code: 500 });
+  }
+});
+
 router.post('/groups/:id/members', (req, res) => {
   try {
     const groupId = Number(req.params.id);
     if (!requireGroupAccess(groupId, req)) return res.status(404).json({ error: 'Group not found.', code: 404 });
     if (!canManageGroup(groupId, req)) return res.status(403).json({ error: 'Not authorized.', code: 403 });
-    const vUserId = validateId(req.body.user_id, 'user_id');
-    if (vUserId.error) return res.status(400).json({ error: vUserId.error, code: 400 });
+    const vUserId = req.body.user_id ? validateId(req.body.user_id, 'user_id') : { value: null, error: null };
+    const vContactId = req.body.contact_id ? validateId(req.body.contact_id, 'contact_id') : { value: null, error: null };
+    if (vUserId.error || vContactId.error) return res.status(400).json({ error: vUserId.error || vContactId.error, code: 400 });
     const role = GROUP_ROLES.includes(req.body.role) && req.body.role !== 'owner' ? req.body.role : 'guest';
-    const exists = db.get().prepare('SELECT 1 FROM users WHERE id = ?').get(vUserId.value);
+    const memberUserId = vContactId.value ? userFromContact(db.get(), vContactId.value, userId(req)) : vUserId.value;
+    if (!memberUserId) return res.status(400).json({ error: 'user_id or contact_id is required.', code: 400 });
+    const exists = db.get().prepare('SELECT 1 FROM users WHERE id = ?').get(memberUserId);
     if (!exists) return res.status(404).json({ error: 'User not found.', code: 404 });
     db.get().prepare(`
       INSERT INTO expense_group_members (group_id, user_id, role, invited_by)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(group_id, user_id) DO UPDATE SET role = excluded.role
-    `).run(groupId, vUserId.value, role, userId(req));
-    activity(groupId, userId(req), 'member_added', 'member', vUserId.value, { role });
-    res.status(201).json({ data: { group_id: groupId, user_id: vUserId.value, role } });
+    `).run(groupId, memberUserId, role, userId(req));
+    if (role === 'guest') {
+      db.get().prepare('INSERT OR IGNORE INTO split_expense_guest_users (user_id, group_id, created_by) VALUES (?, ?, ?)')
+        .run(memberUserId, groupId, userId(req));
+    }
+    activity(groupId, userId(req), 'member_added', 'member', memberUserId, { role });
+    res.status(201).json({ data: { group_id: groupId, user_id: memberUserId, role } });
   } catch (err) {
     log.error('POST /groups/:id/members error:', err);
+    res.status(500).json({ error: 'Internal server error.', code: 500 });
+  }
+});
+
+router.delete('/groups/:id/members/:userId', (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const memberUserId = Number(req.params.userId);
+    if (!requireGroupAccess(groupId, req)) return res.status(404).json({ error: 'Group not found.', code: 404 });
+    if (!canManageGroup(groupId, req)) return res.status(403).json({ error: 'Not authorized.', code: 403 });
+    const target = db.get().prepare('SELECT role FROM expense_group_members WHERE group_id = ? AND user_id = ?').get(groupId, memberUserId);
+    if (!target) return res.status(404).json({ error: 'Member not found.', code: 404 });
+    if (target.role === 'owner') return res.status(400).json({ error: 'Group owner cannot be removed.', code: 400 });
+    db.get().prepare('DELETE FROM expense_group_members WHERE group_id = ? AND user_id = ?').run(groupId, memberUserId);
+    activity(groupId, userId(req), 'member_removed', 'member', memberUserId);
+    res.json({ data: { ok: true } });
+  } catch (err) {
+    log.error('DELETE /groups/:id/members/:userId error:', err);
     res.status(500).json({ error: 'Internal server error.', code: 500 });
   }
 });

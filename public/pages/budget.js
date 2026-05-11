@@ -421,6 +421,8 @@ function renderBody() {
 }
 
 function updateTabs() {
+  _container.classList.toggle('budget-page--split-active', state.activeTab === 'split-expenses' || _user?.access_scope === 'split_guest');
+  _container.classList.toggle('budget-page--loans-active', state.activeTab === 'loans');
   _container.querySelectorAll('.budget-tab').forEach((tab) => {
     const active = tab.dataset.tab === state.activeTab;
     tab.classList.toggle('budget-tab--active', active);
