@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.6] - 2026-05-16
+
+### Fixed
+- Split-guest users on mobile no longer see a broken Kitchen button and an empty More sheet that covered page content; those nav elements are omitted entirely for guest accounts
+- Converted `renderError` and toast icon rendering from `innerHTML` to DOM API to comply with the project's XSS-safety constraint
+
 ## [0.52.5] - 2026-05-13
 
 ### Fixed

@@ -438,6 +438,7 @@ async function renderPage(route, previousPath = null) {
  * App-Shell mit Navigation einmalig aufbauen (nach erstem Login).
  */
 function renderAppShell(container) {
+  const isGuest = currentUser?.access_scope === 'split_guest';
   const skipLink = document.createElement('a');
   skipLink.href = '#main-content';
   skipLink.className = 'sr-only';
@@ -525,80 +526,83 @@ function renderAppShell(container) {
   bottomItems.className = 'nav-bottom__items';
   navItems().slice(0, PRIMARY_NAV).forEach((item) => bottomItems.appendChild(navItemEl(item)));
 
-  const kitchenBtn = document.createElement('button');
-  kitchenBtn.className = 'nav-item nav-item--kitchen';
-  kitchenBtn.id = 'kitchen-btn';
-  kitchenBtn.type = 'button';
-  kitchenBtn.setAttribute('aria-label', t('nav.kitchen'));
-  kitchenBtn.setAttribute('title', t('nav.kitchen'));
-  const kitchenBtnIcon = document.createElement('i');
-  kitchenBtnIcon.dataset.lucide = 'utensils';
-  kitchenBtnIcon.className = 'nav-item__icon';
-  kitchenBtnIcon.setAttribute('aria-hidden', 'true');
-  const kitchenBtnLabel = document.createElement('span');
-  kitchenBtnLabel.className = 'nav-item__label';
-  kitchenBtnLabel.textContent = t('nav.kitchen');
-  kitchenBtn.appendChild(kitchenBtnIcon);
-  kitchenBtn.appendChild(kitchenBtnLabel);
-  kitchenBtn.addEventListener('click', () => navigate(getLastKitchenRoute()));
-  bottomItems.appendChild(kitchenBtn);
+  let backdrop, moreSheet;
 
-  const moreBtn = document.createElement('button');
-  moreBtn.className = 'nav-item nav-item--more';
-  moreBtn.id = 'more-btn';
-  moreBtn.setAttribute('aria-label', t('nav.more'));
-  moreBtn.setAttribute('aria-expanded', 'false');
-  const moreBtnIcon = document.createElement('i');
-  moreBtnIcon.dataset.lucide = 'ellipsis';
-  moreBtnIcon.className = 'nav-item__icon';
-  moreBtnIcon.setAttribute('aria-hidden', 'true');
-  const moreBtnLabel = document.createElement('span');
-  moreBtnLabel.className = 'nav-item__label';
-  moreBtnLabel.textContent = t('nav.more');
-  moreBtn.appendChild(moreBtnIcon);
-  moreBtn.appendChild(moreBtnLabel);
-  bottomItems.appendChild(moreBtn);
-  bottomNav.appendChild(bottomItems);
+  if (!isGuest) {
+    const kitchenBtn = document.createElement('button');
+    kitchenBtn.className = 'nav-item nav-item--kitchen';
+    kitchenBtn.id = 'kitchen-btn';
+    kitchenBtn.type = 'button';
+    kitchenBtn.setAttribute('aria-label', t('nav.kitchen'));
+    kitchenBtn.setAttribute('title', t('nav.kitchen'));
+    const kitchenBtnIcon = document.createElement('i');
+    kitchenBtnIcon.dataset.lucide = 'utensils';
+    kitchenBtnIcon.className = 'nav-item__icon';
+    kitchenBtnIcon.setAttribute('aria-hidden', 'true');
+    const kitchenBtnLabel = document.createElement('span');
+    kitchenBtnLabel.className = 'nav-item__label';
+    kitchenBtnLabel.textContent = t('nav.kitchen');
+    kitchenBtn.appendChild(kitchenBtnIcon);
+    kitchenBtn.appendChild(kitchenBtnLabel);
+    kitchenBtn.addEventListener('click', () => navigate(getLastKitchenRoute()));
+    bottomItems.appendChild(kitchenBtn);
 
-  const backdrop = document.createElement('div');
-  backdrop.className = 'more-backdrop';
-  backdrop.id = 'more-backdrop';
-  backdrop.setAttribute('aria-hidden', 'true');
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'nav-item nav-item--more';
+    moreBtn.id = 'more-btn';
+    moreBtn.setAttribute('aria-label', t('nav.more'));
+    moreBtn.setAttribute('aria-expanded', 'false');
+    const moreBtnIcon = document.createElement('i');
+    moreBtnIcon.dataset.lucide = 'ellipsis';
+    moreBtnIcon.className = 'nav-item__icon';
+    moreBtnIcon.setAttribute('aria-hidden', 'true');
+    const moreBtnLabel = document.createElement('span');
+    moreBtnLabel.className = 'nav-item__label';
+    moreBtnLabel.textContent = t('nav.more');
+    moreBtn.appendChild(moreBtnIcon);
+    moreBtn.appendChild(moreBtnLabel);
+    bottomItems.appendChild(moreBtn);
 
-  const moreSheet = document.createElement('div');
-  moreSheet.className = 'more-sheet';
-  moreSheet.id = 'more-sheet';
-  moreSheet.setAttribute('role', 'dialog');
-  moreSheet.setAttribute('aria-label', t('nav.more'));
-  moreSheet.setAttribute('aria-hidden', 'true');
-  const dragHandle = document.createElement('div');
-  dragHandle.className = 'more-sheet__handle';
-  dragHandle.setAttribute('aria-hidden', 'true');
-  moreSheet.insertAdjacentElement('afterbegin', dragHandle);
+    backdrop = document.createElement('div');
+    backdrop.className = 'more-backdrop';
+    backdrop.id = 'more-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
 
-  const moreSearchBar = document.createElement('div');
-  moreSearchBar.className = 'more-sheet__search';
-  moreSearchBar.id = 'more-sheet-search';
-  moreSearchBar.setAttribute('role', 'button');
-  moreSearchBar.setAttribute('tabindex', '0');
-  moreSearchBar.setAttribute('aria-label', t('search.placeholder'));
-  const moreSearchIcon = document.createElement('i');
-  moreSearchIcon.dataset.lucide = 'search';
-  moreSearchIcon.className = 'more-sheet__search-icon';
-  moreSearchIcon.setAttribute('aria-hidden', 'true');
-  const moreSearchPlaceholder = document.createElement('span');
-  moreSearchPlaceholder.className = 'more-sheet__search-placeholder';
-  moreSearchPlaceholder.textContent = t('search.placeholder');
-  const moreSearchKbd = document.createElement('kbd');
-  moreSearchKbd.className = 'more-sheet__search-kbd';
-  moreSearchKbd.textContent = '/';
-  moreSearchKbd.setAttribute('aria-hidden', 'true');
-  moreSearchBar.appendChild(moreSearchIcon);
-  moreSearchBar.appendChild(moreSearchPlaceholder);
-  moreSearchBar.appendChild(moreSearchKbd);
-  moreSheet.appendChild(moreSearchBar);
+    moreSheet = document.createElement('div');
+    moreSheet.className = 'more-sheet';
+    moreSheet.id = 'more-sheet';
+    moreSheet.setAttribute('role', 'dialog');
+    moreSheet.setAttribute('aria-label', t('nav.more'));
+    moreSheet.setAttribute('aria-hidden', 'true');
+    const dragHandle = document.createElement('div');
+    dragHandle.className = 'more-sheet__handle';
+    dragHandle.setAttribute('aria-hidden', 'true');
+    moreSheet.insertAdjacentElement('afterbegin', dragHandle);
 
-  navItems().filter((i) => !i.kitchenGroup).slice(PRIMARY_NAV).forEach((item) => moreSheet.appendChild(moreItemEl(item)));
+    const moreSearchBar = document.createElement('div');
+    moreSearchBar.className = 'more-sheet__search';
+    moreSearchBar.id = 'more-sheet-search';
+    moreSearchBar.setAttribute('role', 'button');
+    moreSearchBar.setAttribute('tabindex', '0');
+    moreSearchBar.setAttribute('aria-label', t('search.placeholder'));
+    const moreSearchIcon = document.createElement('i');
+    moreSearchIcon.dataset.lucide = 'search';
+    moreSearchIcon.className = 'more-sheet__search-icon';
+    moreSearchIcon.setAttribute('aria-hidden', 'true');
+    const moreSearchPlaceholder = document.createElement('span');
+    moreSearchPlaceholder.className = 'more-sheet__search-placeholder';
+    moreSearchPlaceholder.textContent = t('search.placeholder');
+    const moreSearchKbd = document.createElement('kbd');
+    moreSearchKbd.className = 'more-sheet__search-kbd';
+    moreSearchKbd.textContent = '/';
+    moreSearchKbd.setAttribute('aria-hidden', 'true');
+    moreSearchBar.appendChild(moreSearchIcon);
+    moreSearchBar.appendChild(moreSearchPlaceholder);
+    moreSearchBar.appendChild(moreSearchKbd);
+    moreSheet.appendChild(moreSearchBar);
+
+    navItems().filter((i) => !i.kitchenGroup).slice(PRIMARY_NAV).forEach((item) => moreSheet.appendChild(moreItemEl(item)));
+  }
 
   const searchOverlay = document.createElement('div');
   searchOverlay.className = 'search-overlay';
@@ -640,7 +644,11 @@ function renderAppShell(container) {
   routeAnnouncer.setAttribute('aria-live', 'polite');
   routeAnnouncer.setAttribute('aria-atomic', 'true');
 
-  container.replaceChildren(skipLink, sidebar, main, bottomNav, backdrop, moreSheet, searchOverlay, toastContainer, routeAnnouncer);
+  const shellNodes = [skipLink, sidebar, main, bottomNav];
+  if (backdrop)   shellNodes.push(backdrop);
+  if (moreSheet)  shellNodes.push(moreSheet);
+  shellNodes.push(searchOverlay, toastContainer, routeAnnouncer);
+  container.replaceChildren(...shellNodes);
   updateBranding(currentPath || '/');
 
   // Klick-Handler für alle Nav-Links
@@ -1155,14 +1163,21 @@ function updateNav(path) {
 }
 
 function renderError(container, err) {
-  container.innerHTML = `
-    <div class="empty-state">
-      <div class="empty-state__title">${t('common.errorOccurred')}</div>
-      <div class="empty-state__description">${err.message}</div>
-      <button class="btn btn--primary" id="error-reload-btn">${t('common.reload')}</button>
-    </div>
-  `;
-  container.querySelector('#error-reload-btn')?.addEventListener('click', () => location.reload());
+  const state = document.createElement('div');
+  state.className = 'empty-state';
+  const title = document.createElement('div');
+  title.className = 'empty-state__title';
+  title.textContent = t('common.errorOccurred');
+  const desc = document.createElement('div');
+  desc.className = 'empty-state__description';
+  desc.textContent = err.message;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn--primary';
+  btn.id = 'error-reload-btn';
+  btn.textContent = t('common.reload');
+  btn.addEventListener('click', () => location.reload());
+  state.append(title, desc, btn);
+  container.replaceChildren(state);
 }
 
 // --------------------------------------------------------
@@ -1178,10 +1193,35 @@ function renderError(container, err) {
 const TOAST_SUCCESS_KEY = 'oikos:toastSuccessCount';
 const TOAST_SUCCESS_MAX = 50;
 
+function _toastSvg(children) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'toast__icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2.5');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const [tag, attrs] of children) {
+    const el = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    svg.appendChild(el);
+  }
+  return svg;
+}
+
 const TOAST_ICONS = {
-  success: '<svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
-  danger:  '<svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-  warning: '<svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  success: () => _toastSvg([['polyline', { points: '20 6 9 17 4 12' }]]),
+  danger:  () => _toastSvg([
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['line',   { x1: '12', y1: '8',  x2: '12',   y2: '12' }],
+    ['line',   { x1: '12', y1: '16', x2: '12.01', y2: '16' }],
+  ]),
+  warning: () => _toastSvg([
+    ['path', { d: 'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z' }],
+    ['line', { x1: '12', y1: '9',  x2: '12',   y2: '13' }],
+    ['line', { x1: '12', y1: '17', x2: '12.01', y2: '17' }],
+  ]),
 };
 
 function showToast(message, type = 'default', duration = 3000, onUndo = null) {
@@ -1203,11 +1243,10 @@ function showToast(message, type = 'default', duration = 3000, onUndo = null) {
   toast.className = `toast ${type !== 'default' ? `toast--${type}` : ''}`;
   toast.setAttribute('role', 'alert');
 
-  // Icon: statische SVGs aus TOAST_ICONS (kein User-Input, kein XSS-Risiko)
-  const icon = TOAST_ICONS[type] || '';
+  const iconEl = TOAST_ICONS[type]?.();
+  if (iconEl) toast.appendChild(iconEl);
   const span = document.createElement('span');
   span.textContent = message;
-  toast.innerHTML = icon; // eslint-disable-line no-unsanitized/property -- static SVG only
   toast.appendChild(span);
 
   if (typeof onUndo === 'function') {
