@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.9] - 2026-05-19
+
+### Changed
+- Bumped better-sqlite3 to 12.10.0, express-rate-limit to 8.5.2, and tsdav to 2.2.2
+- Bumped puppeteer (dev dependency) to 25.0.4
+
 ## [0.52.8] - 2026-05-18
 
 ### Fixed
