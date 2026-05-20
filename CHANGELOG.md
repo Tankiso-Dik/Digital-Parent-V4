@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.10] - 2026-05-20
+
+### Fixed
+- CalDAV calendar names are now displayed correctly in Settings > Synchronization; the frontend was reading `cal.url`, `cal.display_name`, and `cal.color` instead of the API response fields `calendarUrl`, `calendarName`, and `calendarColor`, which caused blank calendar entries and an error when toggling a calendar's enabled state
+- Replaced remaining `innerHTML` assignments in `settings.js` with `replaceChildren` / `insertAdjacentHTML` to comply with the project's XSS-safety constraint
+
 ## [0.52.9] - 2026-05-19
 
 ### Changed
