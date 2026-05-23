@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.33] - 2026-05-23
+
+### Fixed
+- Dashboard blank-screen on scroll — final remaining trigger. After v0.52.32 fixed the bug on every other page by moving the `color-mix()` radial gradient off the scroll container, the dashboard still reproduced the symptom because `.dashboard-overview` carried the same problematic pattern: a `linear-gradient(180deg, color-mix(...), color-mix(...))` on a large, scrolled element. Replaced with the solid `var(--color-surface)` background that all other `.widget` elements already use. The dashboard now matches the rest of the app: no scrolled element on any page carries a complex `color-mix()` gradient background.
+
 ## [0.52.32] - 2026-05-23
 
 ### Fixed
