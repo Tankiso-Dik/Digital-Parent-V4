@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.51] - 2026-05-25
+
+### Changed
+- Bottom navigation icon wells enlarged from 32 × 32 px to 36 × 36 px for a more prominent, touch-friendly appearance.
+- Icon well border-radius increased from `--radius-xs` (4 px) to `--radius-sm` (8 px) across all nav contexts, giving a softer squircle shape consistent with the More-sheet wells.
+
 ## [0.52.50] - 2026-05-25
 
 ### Changed
