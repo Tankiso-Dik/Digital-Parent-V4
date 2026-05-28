@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.4] - 2026-05-28
+
+### Changed
+- **Liquid Glass – Meals & Recipes modules:** Migrated `meals.css` and `recipes.css` to Glass design tokens. The autocomplete dropdown (`.meal-modal__autocomplete`) now uses `--glass-bg-card`, `--glass-border-subtle`, `--radius-glass-inner`, and `--glass-shadow-md`. The drag-ghost card (`.meal-card--ghost`) uses `--glass-shadow-lg`. Ingredient rows (`.ingredient-row`) receive `--radius-glass-inner` for consistency. Recipe cards (`.recipe-card`) use `--radius-glass-card`, `--glass-bg-card`, `--glass-border-subtle`, and `--glass-shadow-sm`; a hover state adds `--glass-bg-card-hover` and `--glass-shadow-md`. Recipe ingredient rows (`.recipe-ingredient-row`) use `--radius-glass-inner`. `.meal-slot` was already migrated in `glass.css` §30 and is unchanged.
+
 ## [0.54.3] - 2026-05-28
 
 ### Changed
