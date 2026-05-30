@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.55.6] - 2026-05-30
+
+### Changed
+- **Landing page feature showcase extended with Budget and Shopping rows:** Added two new alternating screenshot rows to `docs/index.html` — "No surprise at the end of the month." (Budget) and "The list everyone actually checks." (Shopping) — each with desktop and mobile screenshots. Both EN and DE locales included.
+
 ## [0.55.5] - 2026-05-30
 
 ### Changed
