@@ -35,24 +35,24 @@ Oikos is a self-hosted web app that keeps your household organized — tasks, gr
 
 Each module is independent. Use what fits, skip what doesn't.
 
-## Features
+## Modules
 
-| Module | Description |
+| | |
 |---|---|
-| **Tasks** | Shared tasks with deadlines, priorities, subtasks, and recurring schedules. Assign to multiple family members simultaneously with stacked avatar display. Kanban board with touch-friendly one-tap status buttons. Archive completed tasks to keep lists clean. Inline reminder presets (15 min to 2 weeks before due). Schedule tasks with a future start date — future tasks are hidden by default and revealed via a "Show scheduled" toggle. |
-| **Shopping Lists** | Collaborative lists organized by aisle. Import ingredients from meal plans in one click. |
-| **Meal Planning** | Weekly drag-and-drop planner. Export ingredient lists directly to your shopping list. |
-| **Recipes** | Create, duplicate, and scale reusable recipes. Pre-fill meal slots from a recipe or save any meal as a recipe. |
-| **Calendar** | Two-way sync with Google Calendar (OAuth) and multiple CalDAV accounts (iCloud, Nextcloud, Radicale, Baikal). Per-account calendar selection with checkboxes. Subscribe to any public ICS/webcal URL with per-subscription color and visibility. Recurring events support daily, weekly, monthly, and yearly frequencies. Overlapping timed events render side-by-side. Events support file attachments (images, PDFs, Office documents). Tasks with a due date appear as priority-coloured chips in all calendar views — click to open the task. |
-| **Documents** | Upload and manage family files (PDF, images, Office documents up to 5 MB). Organize into custom folders with a sidebar browser. Grid/list view, drag-and-drop upload, 14 category tags (medical, school, identity, finance, and more), per-document visibility (family, selected members, private), archive and download. |
-| **Budget** | Track income and expenses with recurring entries, monthly trends, and CSV export. 35 predefined categories plus custom ones. Supports 15 currencies. Loans tab for instalment-based loan tracking. **Split Expenses** tab for shared costs within groups — equal, percentage, exact-amount, and shares split methods, multi-currency support, immutable ledger, automatic debt simplification, and recurring expenses. |
-| **Housekeeping** | Manage household staff workflows. Staff profiles with daily rate, calendar color, and payment schedule. Work session check-in/check-out with automatic calendar event creation and optional payment task. Recurring chore tracking with urgency decay indicators. Supply requests linked to shopping lists. Monthly visit log with payment summaries. |
-| **Notes & Contacts** | Colored sticky notes with Markdown support. Contact directory with multi-account CardDAV sync (Nextcloud, iCloud, Radicale, Baikal), multiple phones/emails/addresses per contact, and vCard import/export. |
-| **Birthdays** | Birthday tracker with automatic annual calendar events, age display, profile photos, and customizable reminder offsets (preset or fully custom interval). |
-| **Reminders** | Time-based reminders on tasks and calendar events. In-app notification badge. |
-| **Family** | Assign family roles, profile pictures, phone, email, and birthday per member. Family details are automatically synced to Contacts and Birthdays. |
-| **API Tokens** | Named Bearer / X-API-Key tokens for external integrations. SHA-256-hashed at rest, with optional expiry. OpenAPI 3.0 spec at `/api/v1/openapi.json`. |
-| **Backup** | Admin-only database backup and restore via the Settings UI. Download a snapshot or restore from a file upload with an automatic pre-restore rollback copy. Automatic scheduled backups (configurable schedule, rotation, retention). |
+| **Tasks** | Shared tasks with deadlines, priorities, subtasks, recurring schedules, and multi-member assignment. |
+| **Shopping** | Collaborative lists organized by aisle. Import from meal plans in one click. |
+| **Meals** | Weekly drag-and-drop planner with direct export to your shopping list. |
+| **Recipes** | Create, duplicate, and scale recipes. Pre-fill meal slots or save any meal as a recipe. |
+| **Calendar** | Google Calendar (OAuth) and CalDAV sync (iCloud, Nextcloud, Radicale). ICS subscriptions, recurring events, file attachments. |
+| **Documents** | Upload and organize family files. Folders, tags, per-document visibility, drag-and-drop. |
+| **Budget** | Income, expenses, recurring entries, trends, CSV export. Split Expenses for shared costs with automatic debt simplification. |
+| **Housekeeping** | Manage household staff — schedules, check-in/out, payments, chores, supply requests. |
+| **Notes & Contacts** | Colored sticky notes with Markdown. Contact directory with CardDAV sync. |
+| **Birthdays** | Birthday tracker with automatic calendar events, age display, and custom reminders. |
+| **Family** | Member profiles with roles, photos, phone, email, and birthday — synced to Contacts and Birthdays. |
+| **Reminders** | Time-based notifications on tasks and calendar events with in-app badge. |
+| **API Tokens** | Named Bearer / X-API-Key tokens for integrations. OpenAPI 3.0 spec included. |
+| **Backup** | Manual and scheduled database backup and restore, with automatic pre-restore rollback. |
 
 ## Design & Technology
 
