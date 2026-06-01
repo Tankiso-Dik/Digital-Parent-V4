@@ -14,6 +14,8 @@ import { generateToken, csrfMiddleware } from './middleware/csrf.js';
 import { collectErrors, date as validateDate, str, MAX_SHORT, MAX_TITLE } from './middleware/validate.js';
 import { createLogger } from './logger.js';
 import { deleteBirthdayArtifacts, syncBirthdayArtifacts } from './services/birthdays.js';
+import { generators } from 'openid-client';
+import { isOidcEnabled, getClient as getOidcClient } from './services/oidc.js';
 
 const log = createLogger('Auth');
 const router = express.Router();
@@ -378,6 +380,72 @@ function requireAdmin(req, res, next) {
   res.status(403).json({ error: 'Permission denied.', code: 403 });
 }
 
+/**
+ * Richtet eine neue Session nach erfolgter Authentifizierung ein.
+ * Wird von POST /login und GET /oidc/callback geteilt.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {{ id: number, role: string }} user
+ * @returns {Promise<void>}
+ */
+function setupAuthSession(req, res, user) {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => {
+      if (err) return reject(err);
+      req.session.userId    = user.id;
+      req.session.role      = user.role;
+      req.session.csrfToken = generateToken();
+      res.cookie('csrf-token', req.session.csrfToken, {
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.SESSION_SECURE !== 'false',
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+      });
+      resolve();
+    });
+  });
+}
+
+// --------------------------------------------------------
+/**
+ * Findet oder erstellt einen User anhand der (validierten) OIDC-Claims.
+ *
+ * Sicherheit: KEIN automatisches Linking bestehender lokaler Accounts. Die
+ * Username-Regex verbietet '@', es gibt keine email-Spalte, und Linking ohne
+ * email_verified-Prüfung wäre ein Account-Takeover-Vektor. Identität wird
+ * ausschließlich über den (kryptografisch validierten) `sub` etabliert.
+ *
+ * @param {import('better-sqlite3').Database} database
+ * @param {{ sub: string, email?: string, name?: string, preferred_username?: string }} claims
+ * @returns {{ id: number, role: string, [key: string]: any }}
+ */
+export function findOrCreateOidcUser(database, claims) {
+  const { sub, email, name, preferred_username } = claims;
+
+  // 1. Bestehenden OIDC-Nutzer über den eindeutigen sub finden
+  const existing = database.prepare('SELECT * FROM users WHERE oidc_sub = ?').get(sub);
+  if (existing) return existing;
+
+  // 2. Eindeutigen username ableiten (Kollision mit bestehenden Usernamen vermeiden)
+  const base = (preferred_username || email || `oidc-${sub}`).slice(0, 64);
+  let username = base;
+  for (let n = 1; database.prepare('SELECT 1 FROM users WHERE username = ?').get(username); n++) {
+    const suffix = `-${n}`;
+    username = base.slice(0, 64 - suffix.length) + suffix;
+  }
+
+  const display_name = (name || preferred_username || email || username).slice(0, 128);
+  const avatar_color = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+
+  // oidc_provider = Issuer-URL (zukunftssicher für mehrere Provider)
+  const result = database.prepare(`
+    INSERT INTO users (username, display_name, password_hash, avatar_color, role, oidc_sub, oidc_provider)
+    VALUES (?, ?, '$oidc$', ?, 'member', ?, ?)
+  `).run(username, display_name, avatar_color, sub, process.env.OIDC_ISSUER ?? null);
+
+  return database.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+}
+
 // --------------------------------------------------------
 // Routen
 // --------------------------------------------------------
@@ -414,38 +482,25 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials.', code: 401 });
     }
 
-    req.session.regenerate((err) => {
-      if (err) {
-        log.error('Session regeneration failed:', err);
-        return res.status(500).json({ error: 'Internal server error.', code: 500 });
-      }
-
-      req.session.userId    = user.id;
-      req.session.role      = user.role;
-      req.session.csrfToken = generateToken();
-
-      // CSRF-Token als Cookie setzen (nicht httpOnly → lesbar für JS)
-      res.cookie('csrf-token', req.session.csrfToken, {
-        httpOnly: false,
-        sameSite: 'lax',
-        secure: process.env.SESSION_SECURE !== 'false',
-        maxAge: 1000 * 60 * 60 * 24 * 7,
-      });
-
+    try {
+      await setupAuthSession(req, res, user);
       res.json({
         user: {
-          id: user.id,
-          username: user.username,
+          id:           user.id,
+          username:     user.username,
           display_name: user.display_name,
           avatar_color: user.avatar_color,
-          avatar_data: user.avatar_data,
-          role: user.role,
-          family_role: user.family_role,
+          avatar_data:  user.avatar_data,
+          role:         user.role,
+          family_role:  user.family_role,
           access_scope: db.get().prepare('SELECT 1 FROM split_expense_guest_users WHERE user_id = ?').get(user.id) ? 'split_guest' : 'family',
         },
         csrfToken: req.session.csrfToken,
       });
-    });
+    } catch (sessionErr) {
+      log.error('Session regeneration failed:', sessionErr);
+      res.status(500).json({ error: 'Internal server error.', code: 500 });
+    }
   } catch (err) {
     log.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error.', code: 500 });
@@ -468,6 +523,100 @@ router.post('/logout', requireAuth, csrfMiddleware, (req, res) => {
     res.clearCookie('oikos.sid');
     res.json({ ok: true });
   });
+});
+
+/**
+ * GET /api/v1/auth/oidc/config
+ * Öffentlicher Endpunkt — kein Auth, kein CSRF.
+ * Gibt zurück ob OIDC konfiguriert und aktiviert ist.
+ * Response: { enabled: boolean }
+ */
+router.get('/oidc/config', (_req, res) => {
+  res.json({ enabled: isOidcEnabled() });
+});
+
+/**
+ * GET /api/v1/auth/oidc/start
+ * Leitet den Browser zum OIDC-Provider weiter.
+ * state + nonce + PKCE-code_verifier werden in der Session abgelegt (CSRF-,
+ * Replay- und Code-Injection-Schutz) und im Callback einmalig verbraucht.
+ */
+router.get('/oidc/start', async (req, res) => {
+  try {
+    const client = await getOidcClient();
+    if (!client) {
+      return res.status(404).json({ error: 'OIDC is not configured.', code: 404 });
+    }
+
+    const state         = generators.state();
+    const nonce         = generators.nonce();
+    const codeVerifier  = generators.codeVerifier();
+    const codeChallenge = generators.codeChallenge(codeVerifier);
+
+    req.session.oidc = { state, nonce, codeVerifier };
+
+    await new Promise((resolve, reject) =>
+      req.session.save(err => (err ? reject(err) : resolve()))
+    );
+
+    res.redirect(client.authorizationUrl({
+      scope: 'openid email profile',
+      state,
+      nonce,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+    }));
+  } catch (err) {
+    log.error('OIDC start error:', err);
+    res.status(500).json({ error: 'OIDC initialization failed.', code: 500 });
+  }
+});
+
+/**
+ * GET /api/v1/auth/oidc/callback
+ * Wird vom OIDC-Provider nach erfolgter Authentifizierung aufgerufen.
+ * Validiert state/nonce/PKCE, tauscht den Code gegen Tokens (client.callback
+ * prüft Signatur, iss, aud, exp, nonce), ermittelt/erstellt den User über den
+ * validierten sub und richtet die Session ein.
+ */
+router.get('/oidc/callback', async (req, res) => {
+  try {
+    const client = await getOidcClient();
+    if (!client) return res.redirect('/login?error=oidc_not_configured');
+
+    // Einmalig konsumieren — verhindert Wiederverwendung von state/nonce/verifier
+    const stored = req.session.oidc;
+    delete req.session.oidc;
+
+    if (!stored?.state) {
+      log.warn('OIDC callback: kein Session-State (abgelaufen oder nicht initiiert)');
+      return res.redirect('/login?error=oidc_state_mismatch');
+    }
+
+    const params   = client.callbackParams(req);
+    const tokenSet = await client.callback(
+      process.env.OIDC_REDIRECT_URI,
+      params,
+      { state: stored.state, nonce: stored.nonce, code_verifier: stored.codeVerifier }
+    );
+
+    // Identität aus dem validierten ID-Token; userinfo() erzwingt sub-Abgleich
+    const claims   = tokenSet.claims();
+    const userinfo = await client.userinfo(tokenSet);
+
+    const user = findOrCreateOidcUser(db.get(), {
+      sub:                claims.sub,
+      email:              userinfo.email,
+      name:               userinfo.name,
+      preferred_username: userinfo.preferred_username,
+    });
+    await setupAuthSession(req, res, user);
+
+    res.redirect('/');
+  } catch (err) {
+    log.error('OIDC callback error:', err);
+    res.redirect('/login?error=oidc_failed');
+  }
 });
 
 /**
