@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.55.10] - 2026-06-01
+
+### Changed
+- **Frontend UI/UX audit rollout completed:** Refined the visual foundation with stronger work surfaces and quieter Liquid Glass treatment, improved mobile dashboard readability, consolidated dense Tasks and Shopping controls, and kept Kitchen/More navigation identity stable across desktop and mobile.
+- **Calendar readability improved across views:** Month cells now have clearer boundaries, today emphasis, stronger event/task chips, readable agenda rows, tokenized all-day labels, and Lucide metadata icons instead of visible emoji markers.
+- **Settings information architecture tightened:** Added a sticky desktop settings navigation, mobile tab scroll affordances, keyboard-friendly shared sub-tabs, and accented cards for major admin, account, family, API token, and backup sections.
+- **Final accessibility and localization polish added:** Replaced remaining inline icon sizing in touched Calendar and Budget actions, kept Budget row actions touch-visible on mobile, improved More sheet focus restoration after navigation, and added regression coverage for locale key consistency.
+
 ## [0.55.9] - 2026-06-01
 
 ### Changed
