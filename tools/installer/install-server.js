@@ -11,6 +11,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ENV_SCHEMA } from './env-schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
@@ -48,20 +49,6 @@ function json(res, status, body) {
   res.end(payload);
 }
 
-const ENV_CATALOG = [
-  { key: 'SESSION_SECRET',              type: 'auto',    label: 'Session Secret',           required: true  },
-  { key: 'DB_ENCRYPTION_KEY',           type: 'auto',    label: 'Database Encryption Key',  required: true  },
-  { key: 'OPENWEATHER_API_KEY',         type: 'user',    label: 'OpenWeather API Key',       required: false },
-  { key: 'OPENWEATHER_CITY',            type: 'default', label: 'City',                     default: 'Berlin' },
-  { key: 'OPENWEATHER_UNITS',           type: 'default', label: 'Units',                    default: 'metric' },
-  { key: 'OPENWEATHER_LANG',            type: 'default', label: 'Language',                 default: 'de' },
-  { key: 'GOOGLE_CLIENT_ID',            type: 'user',    label: 'Google Client ID',          required: false },
-  { key: 'GOOGLE_CLIENT_SECRET',        type: 'user',    label: 'Google Client Secret',      required: false },
-  { key: 'GOOGLE_REDIRECT_URI',         type: 'user',    label: 'Google Redirect URI',       required: false },
-  { key: 'APPLE_USERNAME',              type: 'user',    label: 'Apple ID (email)',           required: false },
-  { key: 'APPLE_APP_SPECIFIC_PASSWORD', type: 'user',    label: 'App-Specific Password',     required: false },
-  { key: 'SYNC_INTERVAL_MINUTES',       type: 'default', label: 'Sync Interval (minutes)',  default: '15' },
-];
 
 async function route(req, res, server) {
   resetIdle(server);
@@ -75,7 +62,7 @@ async function route(req, res, server) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/defaults') {
-    return json(res, 200, { catalog: ENV_CATALOG });
+    return json(res, 200, { catalog: ENV_SCHEMA });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/generate-secret') {
