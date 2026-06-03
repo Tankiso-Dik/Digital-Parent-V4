@@ -16,7 +16,7 @@ import { getPwaInstallState, onPwaInstallStateChanged, promptPwaInstall } from '
 const SUPPORTED_CURRENCIES = ['AED', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HUF', 'INR', 'JPY', 'NOK', 'PLN', 'RUB', 'SAR', 'SEK', 'TRY', 'UAH', 'USD'];
 const SETTINGS_TAB_KEY = 'oikos:settings:tab';
 const APP_NAME_STORAGE_KEY = 'oikos-app-name';
-const DEFAULT_APP_NAME = 'Oikos';
+const DEFAULT_APP_NAME = 'Digital Parent';
 const FAMILY_ROLES = ['dad', 'mom', 'parent', 'child', 'grandparent', 'relative', 'other'];
 const MAX_AVATAR_DATA_LENGTH = 768 * 1024;
 const BUILT_IN_MODULES = [

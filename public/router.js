@@ -144,7 +144,7 @@ const ROUTE_ORDER = ['/', '/calendar', '/tasks', '/meals', '/recipes', '/shoppin
 
 const PRIMARY_NAV = 4;
 
-const DEFAULT_APP_NAME = 'Oikos';
+const DEFAULT_APP_NAME = 'Digital Parent';
 const APP_NAME_STORAGE_KEY = 'oikos-app-name';
 const APP_VERSION_STORAGE_KEY = 'oikos-app-version';
 
