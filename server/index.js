@@ -49,7 +49,7 @@ const logOikos = createLogger('Oikos');
 const { version: APP_VERSION } = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
 );
-const DEFAULT_APP_NAME = 'Oikos';
+const DEFAULT_APP_NAME = 'Digital Parent';
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
